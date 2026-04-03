@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DermaTrace — Track Your Skin, Over Time</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #4AB8D8;
+      --blue-light: #A8DFF0;
+      --blue-dark:  #1E7FA0;
+      --blue-deep:  #0D4F65;
+      --ink:        #0E1F28;
+      --muted:      #5A7A8A;
+      --fog:        #EAF6FB;
+      --white:      #FFFFFF;
+      --serif: 'Lora', Georgia, serif;
+      --sans:  'Sora', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      color: var(--ink);
+      background: var(--white);
+      overflow-x: hidden;
+    }
+
+    /* ─── NAV ───────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 5%;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(74,184,216,0.15);
+      transition: box-shadow .3s;
+    }
+    nav.scrolled { box-shadow: 0 2px 24px rgba(74,184,216,0.12); }
+
+    .nav-logo {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: 1.18rem; font-weight: 700; color: var(--blue-dark);
+      text-decoration: none; letter-spacing: -.02em; flex-shrink: 0;
+    }
+    .nav-logo span { color: var(--blue); }
+    .logo-icon {
+      width: 32px; height: 32px; background: var(--blue); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 18px; height: 18px; fill: white; }
+
+    .nav-links { display: flex; gap: 1.7rem; list-style: none; align-items: center; }
+    .nav-links a {
+      font-size: .865rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; transition: color .2s; white-space: nowrap;
+    }
+    .nav-links a:hover { color: var(--blue-dark); }
+    .nav-cta {
+      background: var(--blue) !important; color: white !important;
+      padding: .46rem 1.1rem; border-radius: 7px; font-weight: 600 !important;
+      transition: background .2s !important;
+    }
+    .nav-cta:hover { background: var(--blue-dark) !important; }
+
+    .hamburger {
+      display: none; flex-direction: column; gap: 5px;
+      cursor: pointer; background: none; border: none; padding: 4px;
+    }
+    .hamburger span {
+      display: block; width: 22px; height: 2px;
+      background: var(--ink); border-radius: 2px; transition: transform .3s, opacity .3s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* ─── HERO ──────────────────────────────────────── */
+    #hero {
+      min-height: 100svh;
+      display: grid; grid-template-columns: 1fr 1fr;
+      align-items: center; padding: 6.5rem 5% 4rem;
+      gap: 3rem; position: relative; overflow: hidden;
+    }
+    #hero::before {
+      content: ''; position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 60% at 80% 40%, rgba(74,184,216,.11) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 50% at 10% 80%, rgba(168,223,240,.15) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-text { position: relative; z-index: 2; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .44rem;
+      background: rgba(74,184,216,.1); border: 1px solid rgba(74,184,216,.27);
+      border-radius: 100px; padding: .32rem .85rem;
+      font-size: .74rem; font-weight: 600; color: var(--blue-dark);
+      letter-spacing: .05em; text-transform: uppercase; margin-bottom: 1.3rem;
+    }
+    .hero-badge::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--blue); flex-shrink: 0; animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .4; transform: scale(1.6); }
+    }
+
+    .hero-h1 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4.2vw, 3.5rem);
+      font-weight: 600; line-height: 1.13; color: var(--ink);
+      margin-bottom: 1.1rem; letter-spacing: -.02em;
+    }
+    .hero-h1 em { font-style: italic; color: var(--blue-dark); }
+
+    .hero-sub {
+      font-size: 1rem; line-height: 1.72; color: var(--muted);
+      max-width: 455px; margin-bottom: 2rem;
+    }
+
+    .hero-actions { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: var(--blue-dark); color: white;
+      padding: .8rem 1.6rem; border-radius: 10px;
+      font-size: .92rem; font-weight: 600; text-decoration: none;
+      transition: background .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 18px rgba(30,127,160,.22); white-space: nowrap;
+    }
+    .btn-primary:hover { background: var(--blue-deep); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(30,127,160,.3); }
+    .btn-primary svg { width: 16px; height: 16px; fill: white; flex-shrink: 0; }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: .4rem;
+      color: var(--blue-dark); font-size: .9rem; font-weight: 600;
+      text-decoration: none; border-bottom: 1.5px solid rgba(30,127,160,.28);
+      padding-bottom: 1px; transition: color .2s, border-color .2s; white-space: nowrap;
+    }
+    .btn-secondary:hover { color: var(--blue); border-color: var(--blue); }
+
+    .hero-stats {
+      display: flex; gap: 1.8rem; flex-wrap: wrap;
+      margin-top: 2.2rem; padding-top: 1.8rem;
+      border-top: 1px solid rgba(74,184,216,.2);
+    }
+    .stat-num { font-size: 1.4rem; font-weight: 700; color: var(--ink); letter-spacing: -.03em; }
+    .stat-label { font-size: .75rem; color: var(--muted); margin-top: .08rem; }
+
+    /* Phone */
+    .hero-visual {
+      position: relative; z-index: 2;
+      display: flex; justify-content: center; align-items: center;
+    }
+    .phone-wrap { position: relative; animation: floatPhone 5s ease-in-out infinite; }
+    @keyframes floatPhone {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+    .phone-frame {
+      width: 218px; background: var(--ink); border-radius: 38px; padding: 9px;
+      box-shadow: 0 36px 72px rgba(14,31,40,.3), 0 0 0 1px rgba(255,255,255,.07);
+    }
+    .phone-notch {
+      width: 68px; height: 21px; background: var(--ink);
+      border-radius: 0 0 13px 13px; margin: 0 auto; position: relative; z-index: 2;
+    }
+    .phone-screen {
+      background: linear-gradient(160deg, #e8f7fc 0%, #d0eef8 100%);
+      border-radius: 28px; height: 440px; overflow: hidden; padding: .9rem;
+    }
+    .screen-top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: .7rem; }
+    .screen-title { font-size: .6rem; font-weight: 700; color: var(--blue-deep); }
+    .screen-date  { font-size: .52rem; color: var(--muted); }
+    .screen-card {
+      background: white; border-radius: 12px; padding: .65rem; margin-bottom: .55rem;
+      box-shadow: 0 2px 8px rgba(74,184,216,.1);
+    }
+    .screen-card-label { font-size: .5rem; color: var(--muted); margin-bottom: .35rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .photo-row { display: flex; gap: .35rem; }
+    .photo-thumb { width: 40px; height: 40px; border-radius: 7px; flex-shrink: 0; }
+    .photo-thumb.p1 { background: linear-gradient(135deg, #fde3c5, #f5b98a); }
+    .photo-thumb.p2 { background: linear-gradient(135deg, #f5c5c5, #e99090); }
+    .photo-thumb.p3 { background: linear-gradient(135deg, #fde3c5, #f0a070); opacity: .65; }
+    .photo-thumb .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,100,50,.5); margin: 9px auto 0; }
+    .progress-bar-wrap { margin-top: .45rem; }
+    .progress-label { display: flex; justify-content: space-between; font-size: .47rem; color: var(--muted); margin-bottom: .22rem; }
+    .progress-track { height: 4px; background: var(--fog); border-radius: 10px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--blue), var(--blue-dark)); }
+    .screen-badge-row { display: flex; gap: .35rem; margin-top: .45rem; }
+    .screen-badge { font-size: .44rem; font-weight: 600; padding: .18rem .45rem; border-radius: 5px; }
+    .sb-green { background: #d4f4e7; color: #1a7a4a; }
+    .sb-blue  { background: rgba(74,184,216,.15); color: var(--blue-dark); }
+    .screen-chart { height: 46px; display: flex; align-items: flex-end; gap: 2.5px; margin-top: .25rem; }
+    .bar { flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, var(--blue) 0%, var(--blue-dark) 100%); opacity: .72; }
+
+    .float-tag {
+      position: absolute; background: white; border-radius: 11px;
+      padding: .44rem .7rem; box-shadow: 0 8px 24px rgba(14,31,40,.12);
+      font-size: .67rem; font-weight: 600; color: var(--ink);
+      white-space: nowrap; display: flex; align-items: center; gap: .38rem;
+    }
+    .float-tag .fdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .tag1 { top: 12%; right: -30%; animation: ft1 4s ease-in-out infinite; }
+    .tag2 { bottom: 20%; left: -33%; animation: ft2 4.5s ease-in-out infinite; }
+    @keyframes ft1 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+    @keyframes ft2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+
+    /* ─── SHARED ────────────────────────────────────── */
+    section { padding: 5.5rem 5%; }
+
+    .section-label { font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: .7rem; }
+    .section-h2 {
+      font-family: var(--serif);
+      font-size: clamp(1.65rem, 3vw, 2.65rem);
+      font-weight: 600; line-height: 1.2; color: var(--ink);
+      margin-bottom: .85rem; letter-spacing: -.02em;
+    }
+    .section-sub { font-size: .95rem; color: var(--muted); line-height: 1.72; max-width: 520px; }
+
+    /* ─── FEATURES ──────────────────────────────────── */
+    #features { background: var(--fog); }
+    .features-header { text-align: center; margin-bottom: 3.5rem; }
+    .features-header .section-sub { margin: 0 auto; }
+
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1.2rem; max-width: 1100px; margin: 0 auto;
+    }
+    .feature-card {
+      background: white; border-radius: 16px; padding: 1.7rem;
+      border: 1px solid rgba(74,184,216,.1);
+      transition: transform .25s, box-shadow .25s;
+      position: relative; overflow: hidden;
+    }
+    .feature-card::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--blue-light), var(--blue));
+      transform: scaleX(0); transform-origin: left; transition: transform .3s;
+    }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 14px 36px rgba(74,184,216,.13); }
+    .feature-card:hover::after { transform: scaleX(1); }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 11px;
+      background: linear-gradient(135deg, var(--blue-light), var(--blue));
+      display: flex; align-items: center; justify-content: center; margin-bottom: 1.1rem;
+    }
+    .feature-icon svg { width: 22px; height: 22px; fill: white; }
+    .feature-title { font-size: 1rem; font-weight: 600; color: var(--ink); margin-bottom: .4rem; }
+    .feature-desc  { font-size: .875rem; color: var(--muted); line-height: 1.65; }
+
+    /* ─── HOW IT WORKS ──────────────────────────────── */
+    #screenshots { background: white; overflow: hidden; }
+    .screenshots-inner {
+      display: grid; grid-template-columns: 1fr 1.1fr;
+      gap: 4rem; align-items: center; max-width: 1100px; margin: 0 auto;
+    }
+    .screens-stack { display: flex; gap: 1rem; justify-content: center; align-items: flex-end; }
+    .screen-mini { background: var(--ink); border-radius: 26px; padding: 7px; box-shadow: 0 18px 44px rgba(14,31,40,.18); }
+    .screen-mini.tall { transform: translateY(-18px); }
+    .screen-mini-inner { border-radius: 20px; overflow: hidden; }
+    .screen-mini.s1 .screen-mini-inner { width: 110px; height: 230px; background: linear-gradient(160deg, #d8f2fb, #bee8f5); }
+    .screen-mini.s2 .screen-mini-inner { width: 110px; height: 270px; background: linear-gradient(160deg, #c8ebf8, #a8dff0); }
+    .screen-mini.s3 .screen-mini-inner { width: 110px; height: 215px; background: linear-gradient(160deg, #daf3fb, #c0ecf8); }
+    .mini-ui { padding: .6rem; height: 100%; display: flex; flex-direction: column; gap: .4rem; }
+    .mini-bar { height: 7px; border-radius: 4px; background: rgba(74,184,216,.3); }
+    .mini-bar.short { width: 50%; } .mini-bar.med { width: 72%; } .mini-bar.full { width: 100%; }
+    .mini-img { border-radius: 7px; flex: 1; background: linear-gradient(135deg, rgba(255,160,100,.3), rgba(255,120,80,.18)); }
+    .mini-row { display: flex; gap: .3rem; }
+    .mini-dot-card { flex: 1; border-radius: 6px; padding: .35rem; background: white; display: flex; flex-direction: column; align-items: center; gap: .22rem; }
+    .mini-dot { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), var(--blue-dark)); }
+    .mini-line { height: 4px; border-radius: 3px; background: var(--fog); width: 90%; }
+
+    .screenshots-text .section-sub { margin-bottom: 1.6rem; }
+    .check-list { list-style: none; display: flex; flex-direction: column; gap: .8rem; }
+    .check-list li {
+      display: flex; gap: .65rem; align-items: flex-start;
+      font-size: .92rem; color: var(--muted); line-height: 1.55;
+    }
+    .check-list li::before {
+      content: ''; width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0;
+      background: var(--blue);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='white' d='M13.3 4.3l-7 7-3.6-3.6 1.4-1.4 2.2 2.2 5.6-5.6z'/%3E%3C/svg%3E");
+      background-size: 11px; background-repeat: no-repeat; background-position: center; margin-top: .14rem;
+    }
+    .check-list li strong { color: var(--ink); font-weight: 600; }
+
+    /* ─── PAYMENT ───────────────────────────────────── */
+    #payment { background: var(--fog); }
+    .payment-header { text-align: center; margin-bottom: 3rem; }
+    .payment-header .section-sub { margin: 0 auto; }
+
+    .payment-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1.2rem; max-width: 920px; margin: 0 auto 2.2rem;
+    }
+    .pay-card {
+      background: white; border-radius: 14px; padding: 1.5rem 1rem;
+      text-align: center; border: 1px solid rgba(74,184,216,.1);
+      transition: transform .22s, box-shadow .22s;
+    }
+    .pay-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(74,184,216,.12); }
+    .pay-icon {
+      width: 52px; height: 52px; border-radius: 12px;
+      margin: 0 auto .9rem; display: flex; align-items: center; justify-content: center;
+    }
+    .pay-icon svg { width: 28px; height: 28px; }
+    .pi-debit  { background: linear-gradient(135deg, #e8f4ff, #cce4ff); }
+    .pi-paypal { background: linear-gradient(135deg, #e8f0ff, #c8d8ff); }
+    .pi-mpesa  { background: linear-gradient(135deg, #e8fff0, #c0f0d0); }
+    .pi-airtel { background: linear-gradient(135deg, #fff0e8, #ffd4b0); }
+    .pay-name { font-size: .9rem; font-weight: 600; color: var(--ink); margin-bottom: .3rem; }
+    .pay-desc { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+
+    .security-strip {
+      display: flex; align-items: center; justify-content: center;
+      gap: 2rem; flex-wrap: wrap;
+      background: white; border-radius: 14px; padding: 1.2rem 1.5rem;
+      max-width: 920px; margin: 0 auto;
+      border: 1px solid rgba(74,184,216,.12);
+    }
+    .sec-item { display: flex; align-items: center; gap: .5rem; font-size: .82rem; font-weight: 500; color: var(--muted); }
+    .sec-item svg { width: 17px; height: 17px; flex-shrink: 0; fill: var(--blue-dark); }
+
+    /* ─── TEAM ──────────────────────────────────────── */
+    #team { background: white; }
+    .team-header { text-align: center; margin-bottom: 3rem; }
+    .team-header .section-sub { margin: 0 auto; }
+    .team-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1.3rem; max-width: 860px; margin: 0 auto;
+    }
+    .team-card {
+      background: var(--fog); border-radius: 16px; padding: 1.8rem 1.4rem;
+      text-align: center; border: 1px solid rgba(74,184,216,.1);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .team-card:hover { transform: translateY(-4px); box-shadow: 0 14px 36px rgba(74,184,216,.13); }
+    .avatar {
+      width: 66px; height: 66px; border-radius: 50%;
+      margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; font-weight: 700; color: white;
+    }
+    .av1 { background: linear-gradient(135deg, #4AB8D8, #1E7FA0); }
+    .av2 { background: linear-gradient(135deg, #6DCEE8, #2A96BF); }
+    .av3 { background: linear-gradient(135deg, #38A8CC, #0D6080); }
+    .team-name { font-size: .97rem; font-weight: 600; color: var(--ink); margin-bottom: .2rem; }
+    .team-role { font-size: .8rem; color: var(--blue); font-weight: 500; margin-bottom: .55rem; }
+    .team-bio  { font-size: .82rem; color: var(--muted); line-height: 1.6; }
+
+    /* ─── DOWNLOAD ──────────────────────────────────── */
+    #download {
+      background: linear-gradient(150deg, var(--blue-deep) 0%, var(--blue-dark) 60%, #1A9ABF 100%);
+      text-align: center; position: relative; overflow: hidden;
+    }
+    #download::before {
+      content: ''; position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 50% 80% at 90% 50%, rgba(255,255,255,.05) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 60% at 10% 30%, rgba(255,255,255,.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .download-inner { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
+    .download-eyebrow {
+      display: inline-block;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+      border-radius: 100px; padding: .3rem .9rem;
+      font-size: .71rem; font-weight: 600; color: rgba(255,255,255,.8);
+      letter-spacing: .07em; text-transform: uppercase; margin-bottom: 1.3rem;
+    }
+    .download-h2 {
+      font-family: var(--serif);
+      font-size: clamp(1.9rem, 4vw, 3rem);
+      color: white; font-weight: 600; line-height: 1.2;
+      margin-bottom: .9rem; letter-spacing: -.02em;
+    }
+    .download-sub { font-size: .97rem; color: rgba(255,255,255,.68); line-height: 1.72; margin-bottom: 2.4rem; }
+
+    .download-btns { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+
+    .dl-btn {
+      display: inline-flex; align-items: center; gap: .65rem;
+      padding: .9rem 1.7rem; border-radius: 12px;
+      font-size: .93rem; font-weight: 600; text-decoration: none;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .dl-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+    .dl-btn-sub { display: flex; flex-direction: column; text-align: left; }
+    .dl-btn-sub small { font-size: .67rem; font-weight: 400; opacity: .62; margin-bottom: .04rem; }
+
+    .dl-android { background: white; color: var(--blue-deep); box-shadow: 0 6px 28px rgba(0,0,0,.2); }
+    .dl-android:hover { transform: translateY(-3px); box-shadow: 0 14px 38px rgba(0,0,0,.28); }
+    .dl-android svg { fill: var(--blue-dark); }
+
+    .dl-ios { background: rgba(255,255,255,.1); border: 1.5px solid rgba(255,255,255,.24); color: rgba(255,255,255,.82); }
+    .dl-ios:hover { background: rgba(255,255,255,.17); transform: translateY(-3px); }
+    .dl-ios svg { fill: rgba(255,255,255,.65); }
+
+    .download-note { margin-top: 1.4rem; font-size: .77rem; color: rgba(255,255,255,.4); }
+
+    /* ─── FOOTER ────────────────────────────────────── */
+    footer {
+      background: var(--ink); padding: 2.2rem 5%;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+    }
+    .footer-logo { color: white; font-weight: 700; font-size: 1rem; }
+    .footer-logo span { color: var(--blue); }
+    .footer-copy { font-size: .77rem; color: rgba(255,255,255,.3); }
+    .footer-links { display: flex; gap: 1.3rem; flex-wrap: wrap; }
+    .footer-links a { font-size: .79rem; color: rgba(255,255,255,.4); text-decoration: none; transition: color .2s; }
+    .footer-links a:hover { color: var(--blue-light); }
+
+    /* ─── SCROLL REVEAL ─────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ─── RESPONSIVE ────────────────────────────────── */
+
+    /* Large tablet */
+    @media (max-width: 1024px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .payment-grid  { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Tablet portrait */
+    @media (max-width: 768px) {
+      nav { padding: .85rem 4%; }
+
+      .nav-links {
+        display: none; flex-direction: column;
+        position: fixed; top: 60px; left: 0; right: 0;
+        background: white; padding: 1.2rem 5% 1.8rem;
+        border-bottom: 1px solid rgba(74,184,216,.15);
+        gap: 1.1rem; z-index: 199;
+        box-shadow: 0 8px 24px rgba(14,31,40,.1);
+      }
+      .nav-links.open { display: flex; }
+      .nav-links a { font-size: .95rem; }
+      .nav-cta { width: fit-content; }
+      .hamburger { display: flex; }
+
+      #hero {
+        grid-template-columns: 1fr;
+        text-align: center; padding: 5.5rem 5% 3.5rem; gap: 2.5rem;
+      }
+      .hero-text { order: 2; }
+      .hero-visual { order: 1; }
+      .hero-sub { margin: 0 auto 1.8rem; }
+      .hero-actions { justify-content: center; }
+      .hero-stats { justify-content: center; }
+      .tag1, .tag2 { display: none; }
+
+      .screenshots-inner { grid-template-columns: 1fr; gap: 2.5rem; }
+      .screens-stack { order: 1; }
+      .screenshots-text { order: 2; }
+
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .payment-grid  { grid-template-columns: repeat(2, 1fr); }
+      .team-grid     { grid-template-columns: repeat(3, 1fr); }
+
+      .security-strip { gap: 1.2rem; }
+      footer { flex-direction: column; text-align: center; align-items: center; }
+    }
+
+    /* Mobile */
+    @media (max-width: 540px) {
+      section { padding: 4rem 5%; }
+      #hero { padding: 5rem 5% 3rem; gap: 2rem; }
+
+      .phone-frame { width: 180px; }
+      .phone-screen { height: 370px; }
+
+      .features-grid { grid-template-columns: 1fr; }
+      .payment-grid  { grid-template-columns: 1fr 1fr; }
+      .team-grid     { grid-template-columns: 1fr; max-width: 320px; }
+
+      .screen-mini.s1 .screen-mini-inner { width: 96px; height: 200px; }
+      .screen-mini.s2 .screen-mini-inner { width: 96px; height: 238px; }
+      .screen-mini.s3 .screen-mini-inner { width: 96px; height: 185px; }
+
+      .download-btns { flex-direction: column; align-items: center; }
+      .dl-btn { width: 100%; max-width: 300px; justify-content: center; }
+
+      .security-strip { flex-direction: column; align-items: flex-start; gap: .8rem; padding: 1rem 1.2rem; }
+      .hero-stats { gap: 1.1rem; }
+    }
+
+    /* Small phones */
+    @media (max-width: 390px) {
+      .hero-h1 { font-size: 1.8rem; }
+      .phone-frame { width: 158px; }
+      .phone-screen { height: 320px; padding: .7rem; }
+      .payment-grid { grid-template-columns: 1fr; }
+      .screens-stack { gap: .5rem; }
+      .screen-mini.s1 .screen-mini-inner { width: 82px; height: 175px; }
+      .screen-mini.s2 .screen-mini-inner { width: 82px; height: 210px; }
+      .screen-mini.s3 .screen-mini-inner { width: 82px; height: 162px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+    </div>
+    Derma<span>Trace</span>
+  </a>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#screenshots">How It Works</a></li>
+    <li><a href="#payment">Payments</a></li>
+    <li><a href="#team">Team</a></li>
+    <li><a href="#download" class="nav-cta">Download</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger" aria-label="Toggle menu" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-text reveal">
+    <div class="hero-badge">Android Beta — Available Now</div>
+    <h1 class="hero-h1">
+      Your skin,<br>
+      <em>documented</em><br>
+      over time.
+    </h1>
+    <p class="hero-sub">
+      DermaTrace lets you photograph and track skin conditions with a structured timeline — so changes do not go unnoticed and every appointment has a visual record.
+    </p>
+    <div class="hero-actions">
+      <a href="#download" class="btn-primary">
+        <svg viewBox="0 0 24 24"><path d="M12 16.5l-6-6 1.41-1.41L11 13.67V4h2v9.67l3.59-3.58L18 11.5l-6 6zM6 18h12v2H6z"/></svg>
+        Download APK
+      </a>
+      <a href="#features" class="btn-secondary">See all features</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <div class="stat-num">100%</div>
+        <div class="stat-label">Free to use</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">Offline</div>
+        <div class="stat-label">No internet needed</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">Private</div>
+        <div class="stat-label">Stays on device</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-visual reveal">
+    <div class="phone-wrap">
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="screen-top-bar">
+            <div class="screen-title">My Conditions</div>
+            <div class="screen-date">Apr 3, 2025</div>
+          </div>
+          <div class="screen-card">
+            <div class="screen-card-label">Eczema — Left Arm</div>
+            <div class="photo-row">
+              <div class="photo-thumb p1"><div class="dot"></div></div>
+              <div class="photo-thumb p2"><div class="dot"></div></div>
+              <div class="photo-thumb p3"><div class="dot"></div></div>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-label"><span>Severity</span><span>Mild</span></div>
+              <div class="progress-track"><div class="progress-fill" style="width:30%"></div></div>
+            </div>
+          </div>
+          <div class="screen-card">
+            <div class="screen-card-label">Tracking streak</div>
+            <div class="screen-chart">
+              <div class="bar" style="height:40%"></div>
+              <div class="bar" style="height:55%"></div>
+              <div class="bar" style="height:50%"></div>
+              <div class="bar" style="height:70%"></div>
+              <div class="bar" style="height:60%"></div>
+              <div class="bar" style="height:90%"></div>
+              <div class="bar" style="height:75%"></div>
+            </div>
+            <div class="screen-badge-row">
+              <div class="screen-badge sb-green">Improving</div>
+              <div class="screen-badge sb-blue">14-day streak</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="float-tag tag1">
+        <div class="fdot" style="background:#4AB8D8"></div>
+        Photo logged today
+      </div>
+      <div class="float-tag tag2">
+        <div class="fdot" style="background:#4CAF50"></div>
+        Condition improving
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="features-header reveal">
+    <div class="section-label">Features</div>
+    <h2 class="section-h2">Built for consistency,<br>not complexity.</h2>
+    <p class="section-sub">Everything you need to document skin conditions properly — nothing you don't.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 0 1 8.8 12 3.2 3.2 0 0 1 12 8.8 3.2 3.2 0 0 1 15.2 12 3.2 3.2 0 0 1 12 15.2M12 7a5 5 0 0 0-5 5 5 5 0 0 0 5 5 5 5 0 0 0 5-5A5 5 0 0 0 12 7M2 13h2a8 8 0 0 0 8 8v2A10 10 0 0 1 2 13M22 13h-2a8 8 0 0 1-8 8v2a10 10 0 0 0 10-10M13 2v2a8 8 0 0 1 8 8h2A10 10 0 0 0 13 2M11 2A10 10 0 0 0 2 11h2a8 8 0 0 1 8-8V2z"/></svg></div>
+      <div class="feature-title">Photo Timeline</div>
+      <div class="feature-desc">Capture photos of affected areas and build a dated visual history. See changes at a glance with no guesswork.</div>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+      <div class="feature-title">Condition Logs</div>
+      <div class="feature-desc">Add notes, tag symptoms, and record treatments alongside your photos. Context that actually helps.</div>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+      <div class="feature-title">Multiple Conditions</div>
+      <div class="feature-desc">Track several skin conditions simultaneously, each with its own dedicated timeline and history.</div>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg></div>
+      <div class="feature-title">Progress Charts</div>
+      <div class="feature-desc">Visual severity graphs show whether your condition is improving or worsening — presented clearly.</div>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+      <div class="feature-title">Fully Private</div>
+      <div class="feature-desc">All data stays on your device. No accounts, no cloud uploads, no data sharing — ever.</div>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg></div>
+      <div class="feature-title">Reminder System</div>
+      <div class="feature-desc">Set daily reminders so you never miss a photo log. Consistency is key to catching changes early.</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="screenshots">
+  <div class="screenshots-inner">
+    <div class="screens-stack reveal">
+      <div class="screen-mini s1">
+        <div class="screen-mini-inner">
+          <div class="mini-ui">
+            <div class="mini-bar med"></div>
+            <div class="mini-bar short"></div>
+            <div class="mini-img"></div>
+            <div class="mini-bar full"></div>
+            <div class="mini-bar med"></div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-mini s2 tall">
+        <div class="screen-mini-inner">
+          <div class="mini-ui">
+            <div class="mini-bar full"></div>
+            <div class="mini-row">
+              <div class="mini-dot-card"><div class="mini-dot"></div><div class="mini-line"></div></div>
+              <div class="mini-dot-card"><div class="mini-dot"></div><div class="mini-line"></div></div>
+            </div>
+            <div class="mini-img"></div>
+            <div class="mini-bar short"></div>
+            <div class="mini-bar med"></div>
+            <div class="mini-bar full"></div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-mini s3">
+        <div class="screen-mini-inner">
+          <div class="mini-ui">
+            <div class="mini-bar short"></div>
+            <div class="mini-bar full"></div>
+            <div class="mini-img"></div>
+            <div class="mini-bar med"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="screenshots-text reveal">
+      <div class="section-label">How It Works</div>
+      <h2 class="section-h2">Simple to start.<br>Powerful over time.</h2>
+      <p class="section-sub">
+        DermaTrace is built around one idea: seeing your skin history side by side tells you more than any single check-up ever could.
+      </p>
+      <ul class="check-list">
+        <li><strong>Add a condition</strong> — name it, describe it, pick a body location. Done in seconds.</li>
+        <li><strong>Log a photo</strong> — snap a photo and it is timestamped automatically into your timeline.</li>
+        <li><strong>Rate your symptoms</strong> — a quick severity score gives you a trackable data point each day.</li>
+        <li><strong>Review the history</strong> — scroll back through weeks or months of photos and notes at once.</li>
+        <li><strong>Share with your doctor</strong> — export a clean report to bring to your next dermatology visit.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- PAYMENT -->
+<section id="payment">
+  <div class="payment-header reveal">
+    <div class="section-label">Payment Methods</div>
+    <h2 class="section-h2">Pay your way,<br>safely and securely.</h2>
+    <p class="section-sub">Whether you are local or international, we support the payment method that works best for you — with full security on every transaction.</p>
+  </div>
+
+  <div class="payment-grid">
+    <div class="pay-card reveal">
+      <div class="pay-icon pi-debit">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="5" width="20" height="14" rx="2" stroke="#1E7FA0" stroke-width="1.8"/>
+          <path d="M2 10h20" stroke="#1E7FA0" stroke-width="1.8"/>
+          <rect x="5" y="13" width="4" height="2" rx=".5" fill="#1E7FA0"/>
+        </svg>
+      </div>
+      <div class="pay-name">Debit Card</div>
+      <div class="pay-desc">Visa and Mastercard accepted. Fast, secure card payments worldwide.</div>
+    </div>
+
+    <div class="pay-card reveal">
+      <div class="pay-icon pi-paypal">
+        <svg viewBox="0 0 24 24">
+          <path d="M7.076 21.337H4.5a.64.64 0 0 1-.633-.74L5.916 3.42a.77.77 0 0 1 .761-.65h6.063c2.14 0 3.722.51 4.704 1.514.945.966 1.27 2.184 1.004 3.727-.017.102-.036.205-.058.311-.787 4.034-3.47 5.42-6.9 5.42H9.457a.77.77 0 0 0-.76.65L7.9 20.597a.64.64 0 0 1-.633.55l-.191.19z" fill="#003087"/>
+          <path d="M19.236 8.32c-.017.102-.036.205-.058.311-.787 4.034-3.47 5.42-6.9 5.42H10.25a.77.77 0 0 0-.76.65l-.8 5.082-.228 1.443a.4.4 0 0 0 .396.462h2.776a.675.675 0 0 0 .667-.571l.027-.142.528-3.35.034-.183a.675.675 0 0 1 .666-.572h.42c2.717 0 4.844-1.103 5.466-4.295.26-1.335.125-2.449-.56-3.255z" fill="#009cde"/>
+        </svg>
+      </div>
+      <div class="pay-name">PayPal</div>
+      <div class="pay-desc">Pay securely using your PayPal account — available in over 200 countries.</div>
+    </div>
+
+    <div class="pay-card reveal">
+      <div class="pay-icon pi-mpesa">
+        <svg viewBox="0 0 24 24" fill="none">
+          <rect x="6" y="2" width="12" height="20" rx="2" stroke="#1a7a4a" stroke-width="1.8"/>
+          <path d="M9 6h6M9 10h6M9 14h4" stroke="#1a7a4a" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="15" cy="17" r="1" fill="#1a7a4a"/>
+        </svg>
+      </div>
+      <div class="pay-name">M-Pesa</div>
+      <div class="pay-desc">Pay instantly via M-Pesa — the most convenient mobile money option in East Africa.</div>
+    </div>
+
+    <div class="pay-card reveal">
+      <div class="pay-icon pi-airtel">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="9" stroke="#c45000" stroke-width="1.8"/>
+          <path d="M8 12c0-2.21 1.79-4 4-4s4 1.79 4 4" stroke="#c45000" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="12" cy="15" r="1.5" fill="#c45000"/>
+        </svg>
+      </div>
+      <div class="pay-name">Airtel Money</div>
+      <div class="pay-desc">Airtel Money transfers accepted — quick and reliable across the network.</div>
+    </div>
+  </div>
+
+  <div class="security-strip reveal">
+    <div class="sec-item">
+      <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+      256-bit SSL Encryption
+    </div>
+    <div class="sec-item">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+      PCI-DSS Compliant
+    </div>
+    <div class="sec-item">
+      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+      Secure Checkout
+    </div>
+    <div class="sec-item">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      No Hidden Charges
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section id="team">
+  <div class="team-header reveal">
+    <div class="section-label">The Team</div>
+    <h2 class="section-h2">Built by people who care<br>about health technology.</h2>
+    <p class="section-sub">A small, focused team committed to building tools that genuinely improve how people manage their health day to day.</p>
+  </div>
+  <div class="team-grid">
+    <div class="team-card reveal">
+      <div class="avatar av1">DT</div>
+      <div class="team-name">Lead Developer</div>
+      <div class="team-role">Android Engineering</div>
+      <div class="team-bio">Android developer focused on clean architecture, offline-first apps, and user privacy above all else.</div>
+    </div>
+    <div class="team-card reveal">
+      <div class="avatar av2">UX</div>
+      <div class="team-name">Design Lead</div>
+      <div class="team-role">UX and Product Design</div>
+      <div class="team-bio">Makes health tools feel approachable, clear, and genuinely useful in everyday life — not clinical.</div>
+    </div>
+    <div class="team-card reveal">
+      <div class="avatar av3">QA</div>
+      <div class="team-name">Research and QA</div>
+      <div class="team-role">Testing and Health Research</div>
+      <div class="team-bio">Bridges medical context with software quality to ensure DermaTrace is accurate and reliable.</div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="download-inner reveal">
+    <div class="download-eyebrow">Available Now — Free Download</div>
+    <h2 class="download-h2">Start tracking your skin today.</h2>
+    <p class="download-sub">
+      DermaTrace is available as a direct APK for Android while we prepare for the Play Store. iOS support is on the way — register your interest and be notified first.
+    </p>
+    <div class="download-btns">
+      <a href="#" class="dl-btn dl-android">
+        <svg viewBox="0 0 24 24"><path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C14.05 1.23 13.05 1 12 1c-1.05 0-2.05.23-2.94.63L7.68.15c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.3 1.3C6.97 3.26 6 5.01 6 7h12c0-1.99-.97-3.74-2.47-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z"/></svg>
+        <div class="dl-btn-sub">
+          <small>Download for</small>
+          Android APK
+        </div>
+      </a>
+      <a href="#" class="dl-btn dl-ios">
+        <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        <div class="dl-btn-sub">
+          <small>Coming soon to</small>
+          iOS — Join Waitlist
+        </div>
+      </a>
+    </div>
+    <div class="download-note">
+      Android 7.0 or higher required &nbsp;·&nbsp; Enable "Install from unknown sources" in settings &nbsp;·&nbsp; Play Store listing coming soon
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Derma<span>Trace</span></div>
+  <div class="footer-copy">2025 DermaTrace. All rights reserved.</div>
+  <div class="footer-links">
+    <a href="#">Privacy Policy</a>
+    <a href="#">Terms of Use</a>
+    <a href="#">Contact</a>
+    <a href="#download">Download</a>
+  </div>
+</footer>
+
+<script>
+  // Nav scroll
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 30);
+  }, { passive: true });
+
+  // Hamburger
+  function toggleMenu() {
+    const links = document.getElementById('navLinks');
+    const burger = document.getElementById('hamburger');
+    const open = links.classList.toggle('open');
+    burger.classList.toggle('open', open);
+  }
+  document.querySelectorAll('#navLinks a').forEach(a => {
+    a.addEventListener('click', () => {
+      document.getElementById('navLinks').classList.remove('open');
+      document.getElementById('hamburger').classList.remove('open');
+    });
+  });
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 65);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
